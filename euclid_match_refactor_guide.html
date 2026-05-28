@@ -1,0 +1,1069 @@
+<!--
+=============================================================
+  EUCLID MATCH — GUIA DE REFATORAÇÃO
+=============================================================
+  Estrutura de pastas sugerida:
+  
+  /euclid-match
+  ├── index.html
+  ├── core/
+  │   ├── main.js          — bootstrap, game loop principal, init()
+  │   ├── constants.js     — COLS, ROWS, PIECES, DIFF, MAX_BOMBS
+  │   └── state.js         — estado global (board, queue, hp, score, flags)
+  ├── systems/
+  │   ├── board.js         — gravity(), renderBoard(), getMoves(), findAllMatches()
+  │   ├── queue.js         — makeQueueRow(), drainQueue(), renderQueue()
+  │   ├── combo.js         — bumpCombo(), resetCombo(), updateComboUI(), comboTimer
+  │   ├── hp.js            — startHPDrain(), gainHP(), updateHPBar()
+  │   ├── bomb.js          — toggleBomb(), detonateBomb(), updateBombs()
+  │   ├── emergency.js     — toggleEmergency(), getEmMoves(), updateEmBtn()
+  │   ├── input.js         — onCell(), doSwap(), seleção de peças
+  │   ├── match.js         — processMatches(), tryGiveBomb(), chain reaction
+  │   └── gameover.js      — endGame(), condições de vitória/derrota
+  └── components/
+      ├── piece.js         — svgOf(), weightedRnd() — entidade "peça"
+      ├── cell.js          — criação de DOM cell, classes CSS, eventos
+      └── overlay.js       — renderOverlay(), showOverlay(), hideOverlay()
+
+  FILOSOFIA ECS AQUI:
+  - Entities   = peças no tabuleiro (board[r][c] = índice da peça)
+  - Components = PIECES[idx] (shape, color, minLine, moveType, has2x2)
+  - Systems    = cada arquivo em /systems processa entidades com base nos components
+=============================================================
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Euclid Match</title>
+  <style>
+    /* ── RESET ─────────────────────────────────────────────
+       Mover para: styles/reset.css
+    ──────────────────────────────────────────────────────── */
+    *{box-sizing:border-box;margin:0;padding:0;}
+
+    body {
+      background-color: #1f1c36;
+    }
+
+    /* ── LAYOUT ROOT ────────────────────────────────────────
+       #gw = game wrapper, raiz de todo o layout.
+       Mover para: styles/layout.css
+    ──────────────────────────────────────────────────────── */
+    #gw{padding:1rem 0;display:flex;flex-direction:column;align-items:center;gap:10px;font-family:var(--font-sans);}
+
+    /* ── HUD (heads-up display) ─────────────────────────────
+       Barra superior com pontos, combo, peças restantes, bombas.
+       Candidato a componente: components/hud.js
+       Mover para: styles/hud.css
+    ──────────────────────────────────────────────────────── */
+    #topbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;}
+    .sl{font-size:11px;color:var(--color-text-secondary);}
+    .sv{font-size:18px;font-weight:500;color:var(--color-text-primary);}
+    .stat{display:flex;flex-direction:column;align-items:center;}
+
+    /* ── HP BAR ─────────────────────────────────────────────
+       Sistema próprio: systems/hp.js
+       Mover para: styles/hp.css
+    ──────────────────────────────────────────────────────── */
+    #hpwrap{width:290px;}
+    #hplabel{display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;}
+    #hpbar-bg{width:100%;height:10px;background:var(--color-background-secondary);border-radius:5px;overflow:hidden;border:0.5px solid var(--color-border-tertiary);}
+    #hpbar{height:100%;border-radius:5px;transition:width 0.2s,background 0.3s;}
+
+    /* ── COMBO UI ───────────────────────────────────────────
+       Sistema próprio: systems/combo.js
+       Mover para: styles/combo.css
+    ──────────────────────────────────────────────────────── */
+    #combowrap{display:flex;align-items:center;gap:7px;}
+    #combometer{font-size:18px;font-weight:500;}
+    #multibadge{font-size:11px;padding:2px 6px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);}
+    #combotimer-bg{width:48px;height:4px;background:var(--color-background-secondary);border-radius:2px;overflow:hidden;}
+    #combotimer-bar{height:100%;background:#7F77DD;border-radius:2px;}
+
+    /* ── BOMBS UI ───────────────────────────────────────────
+       Sistema próprio: systems/bomb.js
+       Mover para: styles/bomb.css
+    ──────────────────────────────────────────────────────── */
+    #bombbar{display:flex;gap:5px;align-items:center;}
+    .bomb-icon{width:28px;height:28px;border-radius:50%;background:#ED93B1;border:1.5px solid #D4537E;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;transition:transform 0.1s;user-select:none;}
+    .bomb-icon:hover{transform:scale(1.12);}
+    .bomb-icon.active-bomb{outline:2px solid #D4537E;outline-offset:1px;}
+    .bomb-empty{width:28px;height:28px;border-radius:50%;border:1.5px dashed var(--color-border-tertiary);opacity:0.35;}
+
+    /* ── DIFFICULTY SELECTOR ────────────────────────────────
+       Poderia ser um componente: components/difficulty-picker.js
+       Ou parte do menu inicial (futuro: screens/menu.js)
+    ──────────────────────────────────────────────────────── */
+    #diff-bar{display:flex;gap:7px;align-items:center;}
+    .diff-btn{font-size:11px;padding:3px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;}
+    .diff-btn:hover{background:var(--color-background-secondary);}
+    .diff-btn.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500;}
+
+    /* ── BOARD WRAPPER ──────────────────────────────────────
+       Contém: fila de entrada (queue), tabuleiro principal, overlay.
+       Mover para: styles/board.css
+    ──────────────────────────────────────────────────────── */
+    #boardwrap{position:relative;display:flex;flex-direction:column;align-items:center;}
+
+    /* ── QUEUE (fila de entrada) ────────────────────────────
+       Sistema próprio: systems/queue.js
+       Mostra a próxima linha que vai entrar por coluna.
+       .will-drop = coluna que vai receber peça imediatamente
+    ──────────────────────────────────────────────────────── */
+    #queue-label{font-size:10px;color:var(--color-text-secondary);text-align:center;margin-bottom:3px;letter-spacing:0.03em;}
+    #queue-area{display:grid;grid-template-columns:repeat(7,44px);gap:3px;padding:0 8px;margin-bottom:4px;}
+    .qcell{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--color-background-secondary);border:1.5px dashed var(--color-border-secondary);transition:background 0.2s;}
+    .qcell.will-drop{background:#FFF8E1;border-color:#BA7517;}
+
+    /* ── BOARD (tabuleiro principal) ────────────────────────
+       Sistema principal: systems/board.js
+       Grid 7×8 de células.
+       Estados de célula:
+         .selected    = peça selecionada pelo jogador
+         .highlight   = destino válido de movimento (azul)
+         .hl2x2       = hexágonos que formam 2×2 (verde)
+         .bomb-target = célula dentro do alcance de bomba (rosa)
+         .em-target   = destino válido para movimento de emergência
+         .empty       = célula vazia (sem peça)
+    ──────────────────────────────────────────────────────── */
+    #board{display:grid;grid-template-columns:repeat(7,44px);gap:3px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:8px;}
+    .cell{width:44px;height:44px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);transition:transform 0.1s;}
+    .cell:hover{transform:scale(1.08);}
+    .cell.selected{outline:3px solid var(--color-text-primary);outline-offset:-3px;}
+    .cell.highlight{background:var(--color-background-info);border-color:var(--color-border-info);}
+    .cell.hl2x2{background:var(--color-background-success);border-color:var(--color-border-success);}
+    .cell.bomb-target{background:#FBEAF0;border:1.5px solid #D4537E;}
+    .cell.empty{background:transparent;border:none;cursor:default;}
+    .cell.empty.bomb-target{background:#FDF0F5;border:1.5px dashed #D4537E;}
+    .cell.em-target{background:#E1F5EE;border:1.5px dashed #1D9E75;cursor:crosshair;}
+
+    /* ── STATUS MESSAGE ─────────────────────────────────────
+       Linha de feedback contextual para o jogador.
+       Mover para: styles/hud.css
+       Gerenciado por: setMsg() em core/main.js ou systems/input.js
+    ──────────────────────────────────────────────────────── */
+    #msg{font-size:12px;color:var(--color-text-secondary);min-height:16px;text-align:center;max-width:340px;}
+
+    /* ── OVERLAY (game over / vitória) ─────────────────────
+       Sistema próprio: systems/gameover.js + components/overlay.js
+       Aparece sobre o tabuleiro com resultado final.
+       Mover para: styles/overlay.css
+    ──────────────────────────────────────────────────────── */
+    #overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);border-radius:var(--border-radius-lg);align-items:center;justify-content:center;z-index:10;}
+    #overlay.show{display:flex;}
+    #overlay-box{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.5rem 2rem;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:200px;}
+    #overlay-title{font-size:22px;font-weight:500;}
+    #overlay-sub{font-size:13px;color:var(--color-text-secondary);text-align:center;max-width:220px;line-height:1.5;}
+    #overlay-score{font-size:24px;font-weight:500;}
+    #overlay-btn{font-size:13px;padding:5px 18px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;}
+    #overlay-btn:hover{background:var(--color-background-secondary);}
+
+    /* ── BOTÕES UTILITÁRIOS ─────────────────────────────────
+       Mover para: styles/buttons.css
+    ──────────────────────────────────────────────────────── */
+    button.restart{font-size:12px;padding:3px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;}
+    button.restart:hover{background:var(--color-background-secondary);}
+    #emergency-btn{font-size:11px;padding:3px 9px;border-radius:var(--border-radius-md);border:0.5px solid #1D9E75;color:#1D9E75;background:transparent;cursor:pointer;}
+    #emergency-btn:disabled{opacity:0.3;cursor:default;border-color:var(--color-border-tertiary);color:var(--color-text-secondary);}
+    #emergency-btn.active-em{outline:2px solid #1D9E75;outline-offset:1px;}
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     #gw — GAME WRAPPER
+     Raiz de todo o layout do jogo.
+     Futuro: substituir por <canvas> ou manter DOM dependendo
+     da direção do projeto. Se quiser adicionar telas (menu,
+     tutorial, highscore), cada tela vira um filho desse wrapper
+     com display:none/flex controlado por screens/router.js
+════════════════════════════════════════════════════════════ -->
+<div id="gw">
+  <h2 class="sr-only">Euclid Match</h2>
+
+  <!-- ── HUD SUPERIOR ──────────────────────────────────────
+       Responsabilidade: exibir estado do jogo em tempo real.
+       Componente futuro: components/hud.js
+       Contém: pontuação, combo, peças restantes, bombas,
+               botão de emergência, botão restart.
+  ─────────────────────────────────────────────────────── -->
+  <div id="topbar">
+
+    <!-- Pontuação — atualizada por systems/match.js -->
+    <div class="stat">
+      <span class="sl">pontos</span>
+      <span class="sv" id="score">0</span>
+    </div>
+
+    <!-- Combo meter — controlado por systems/combo.js
+         #combotimer-bar = barra de janela de tempo do combo
+         #multibadge     = texto do multiplicador atual (+0.5x, +1.0x...)
+    -->
+    <div id="combowrap">
+      <div class="stat">
+        <span class="sl">combo</span>
+        <span id="combometer">x1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span id="multibadge">base</span>
+        <div id="combotimer-bg"><div id="combotimer-bar" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <!-- Contador de peças restantes — atualizado por systems/board.js + systems/queue.js -->
+    <div class="stat">
+      <span class="sl">peças</span>
+      <span class="sv" id="piecesleft">—</span>
+    </div>
+
+    <!-- Bombas — controlado por systems/bomb.js
+         Cada .bomb-icon é um botão clicável gerado dinamicamente.
+         .bomb-empty = slot vazio (sem bomba disponível)
+    -->
+    <div class="stat">
+      <span class="sl">bombas</span>
+      <div id="bombbar"></div>
+    </div>
+
+    <!-- Botão de emergência — controlado por systems/emergency.js
+         1 uso por partida. Permite losango mover ortogonalmente.
+    -->
+    <button id="emergency-btn">🔀 emerg.</button>
+
+    <!-- Restart — chama init() em core/main.js -->
+    <button class="restart" id="restart">↺</button>
+  </div>
+
+  <!-- ── HP BAR ─────────────────────────────────────────────
+       Sistema: systems/hp.js
+       #hpbar largura e cor mudam via JS conforme hp cai.
+       Verde (>50%) → Laranja (25-50%) → Vermelho (<25%)
+  ──────────────────────────────────────────────────────── -->
+  <div id="hpwrap">
+    <div id="hplabel">
+      <span>vida</span>
+      <span id="hppct">100%</span>
+    </div>
+    <div id="hpbar-bg">
+      <div id="hpbar" style="width:100%;background:#1D9E75;"></div>
+    </div>
+  </div>
+
+  <!-- ── DIFFICULTY SELECTOR ──────────────────────────────
+       Futuro: mover para tela de menu (screens/menu.js).
+       Cada botão seta a variável diff e chama init().
+       Pode virar um componente: components/difficulty-picker.js
+  ──────────────────────────────────────────────────────── -->
+  <div id="diff-bar">
+    <span style="font-size:11px;color:var(--color-text-secondary)">dificuldade:</span>
+    <button class="diff-btn active" data-diff="medio">média</button>
+    <button class="diff-btn" data-diff="hard">hard</button>
+  </div>
+
+  <!-- ── STATUS MESSAGE ───────────────────────────────────
+       Linha de feedback contextual.
+       Atualizado por setMsg() — candidato a events/EventBus.emit('msg', texto)
+       para desacoplar sistemas do DOM diretamente.
+  ──────────────────────────────────────────────────────── -->
+  <div id="msg">selecione uma peça</div>
+
+  <!-- ── BOARD WRAPPER ────────────────────────────────────
+       position:relative para o #overlay ficar absoluto sobre o tabuleiro.
+       Contém: fila de entrada, tabuleiro, overlay de fim de jogo.
+  ──────────────────────────────────────────────────────── -->
+  <div id="boardwrap">
+
+    <!-- ── QUEUE (fila de entrada) ──────────────────────
+         Sistema: systems/queue.js
+         Mostra 1 linha com a próxima peça de cada coluna.
+         Células com .will-drop = coluna com espaço no topo,
+         peça vai entrar imediatamente após o próximo gravity().
+    ──────────────────────────────────────────────────── -->
+    <div id="queue-label">↓ próximas peças ↓</div>
+    <div id="queue-area">
+      <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
+    </div>
+
+    <!-- ── BOARD (tabuleiro principal) ──────────────────
+         Sistema: systems/board.js
+         Grid 7×8. Células geradas dinamicamente por render()
+         em systems/board.js.
+         
+         Estado de uma célula (classes CSS):
+           padrão      = peça normal, clicável
+           .empty      = sem peça (cursor default)
+           .selected   = peça atualmente selecionada
+           .highlight  = destinos válidos de movimento
+           .hl2x2      = hexágonos em posição de combo 2×2
+           .bomb-target = área de efeito da bomba ativa
+           .em-target  = destinos válidos para emergência
+         
+         Cada célula tem data-r e data-c para indexação.
+    ──────────────────────────────────────────────────── -->
+    <div id="board">
+      <!-- gerado dinamicamente por render() em systems/board.js -->
+    </div>
+
+    <!-- ── OVERLAY (fim de jogo) ────────────────────────
+         Sistema: systems/gameover.js
+         Aparece sobre o tabuleiro em 3 situações:
+           - vitória      (reason='win')
+           - vida zerada  (reason='vida')
+           - no-combo     (reason='nocombo')
+         
+         Futuro: pode conter botões de "próxima fase", 
+         "compartilhar pontuação", "ver tutorial" etc.
+         Mover lógica para: components/overlay.js
+    ──────────────────────────────────────────────────── -->
+    <div id="overlay">
+      <div id="overlay-box">
+        <div id="overlay-title"></div>   <!-- ex: "🏆 vitória!" -->
+        <div id="overlay-sub"></div>     <!-- motivo do fim -->
+        <div id="overlay-score"></div>   <!-- pontuação final -->
+        <button id="overlay-btn">jogar de novo</button>
+      </div>
+    </div>
+
+  </div><!-- /boardwrap -->
+</div><!-- /gw -->
+
+<script>
+// =============================================================
+//  EUCLID MATCH — SCRIPT MONOLÍTICO COMENTADO PARA REFATORAÇÃO
+//  
+//  Como ler este arquivo:
+//  Cada bloco tem um cabeçalho indicando para qual arquivo
+//  ele deve ser movido durante a refatoração.
+//  
+//  Ordem de dependência sugerida para imports:
+//    constants.js → state.js → piece.js → cell.js
+//    → board.js → queue.js → combo.js → hp.js
+//    → bomb.js → emergency.js → input.js → match.js
+//    → gameover.js → overlay.js → main.js
+// =============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: core/constants.js
+//  
+//  Exportar tudo como named exports:
+//    export const COLS = 7;
+//    export const PIECES = [...];
+//    etc.
+//  
+//  Nada aqui deve ter lógica — só valores.
+// ─────────────────────────────────────────────────────────────
+const COLS = 7;
+const PLAY_ROWS = 8;
+const MAX_BOMBS = 3;
+const BOMB = -1; // valor sentinela: célula com bomba rosa no tabuleiro
+
+// Configuração por dificuldade.
+// hpRate    = % de HP perdido por segundo
+// strongRatio = fração de triângulos gerados (peça mais difícil)
+// comboWindow = ms para o combo expirar sem novo match
+const DIFF = {
+  medio: { hpRate: 1.6,  strongRatio: 0.15, comboWindow: 4000 },
+  hard:  { hpRate: 2.8,  strongRatio: 0.30, comboWindow: 2800 },
+};
+
+// ENTITIES: definição das peças (components no sentido ECS).
+// Cada peça é uma entidade com components:
+//   shape     → component visual (renderizado por piece.js)
+//   minLine   → component de regra de combo em linha
+//   moveType  → component de regra de movimento
+//   has2x2    → component de regra de combo em bloco
+const PIECES = [
+  // idx 0 — triângulo (peça "forte", move em 8 direções)
+  { name:'triangulo', color:'#E24B4A', stroke:'#A32D2D', shape:'triangle', minLine:3, moveType:'all8',  has2x2:false },
+  // idx 1 — quadrado (único que exige 4 em linha)
+  { name:'quadrado',  color:'#BA7517', stroke:'#633806', shape:'square',   minLine:4, moveType:'ortho', has2x2:false },
+  // idx 2 — losango (só move na diagonal)
+  { name:'losango',   color:'#1D9E75', stroke:'#085041', shape:'diamond',  minLine:3, moveType:'diag',  has2x2:false },
+  // idx 3 — pentágono (peça "bem comportada", mais comum)
+  { name:'pentagono', color:'#185FA5', stroke:'#042C53', shape:'pentagon', minLine:3, moveType:'ortho', has2x2:false },
+  // idx 4 — hexágono (mais comum, combo 2×2 adicional)
+  { name:'hexagono',  color:'#7F77DD', stroke:'#3C3489', shape:'hexagon',  minLine:3, moveType:'ortho', has2x2:true  },
+];
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: core/state.js
+//  
+//  Estado global do jogo. Em uma arquitetura ECS mais pura,
+//  isso seria um "World" ou "GameState" singleton.
+//  
+//  Sugestão: exportar como objeto mutável:
+//    export const state = { board: [], queue: [], ... };
+//  
+//  Cada system importa e modifica state diretamente,
+//  ou via um EventBus para desacoplamento maior.
+// ─────────────────────────────────────────────────────────────
+let board        = [];   // board[r][c] = índice da peça (0-4) | BOMB(-1) | null
+let queue        = [];   // queue[c]    = próxima peça da coluna c
+let selected     = null; // [r, c] da peça selecionada, ou null
+let score        = 0;
+let busy         = false; // trava input durante animações/processamento
+let hp           = 100;   // 0–100
+let comboLevel   = 1;     // multiplicador atual (x1, x2, x3...)
+let comboTimer   = null;  // setTimeout handle
+let comboBarIv   = null;  // setInterval handle da barra de combo
+let comboBarEnd  = 0;     // timestamp de expiração do combo
+let hpIv         = null;  // setInterval handle do drain de HP
+let gameOver     = false;
+let bombs        = 1;     // bombas no estoque (0–MAX_BOMBS)
+let bombMode     = false; // true = próximo clique detona bomba
+let emergencyUsed   = false; // 1 uso por partida
+let emergencyMode   = false;
+let emergencyPiece  = null;  // [r,c] do losango selecionado para emergência
+let chainReaction   = false; // true = está em cascata (para tryGiveBomb)
+let totalPieces     = 0;     // total de peças restantes (board + queue)
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: components/piece.js
+//  
+//  Responsabilidade: renderizar o SVG de uma peça pelo índice.
+//  Função pura — não tem side effects, ideal para testar.
+//  
+//  Exportar: svgOf(idx, size)
+//  Usar em: systems/board.js (células do tabuleiro)
+//           systems/queue.js (células da fila)
+// ─────────────────────────────────────────────────────────────
+function svgOf(idx, size = 24) {
+  // Bomba rosa — peça especial, não está em PIECES[]
+  if (idx === BOMB)
+    return `<svg width="${size}" height="${size}" viewBox="0 0 28 28">
+      <circle cx="14" cy="14" r="11" fill="#ED93B1" stroke="#D4537E" stroke-width="1.5"/>
+      <text x="14" y="19" text-anchor="middle" font-size="12">💣</text>
+    </svg>`;
+
+  const p = PIECES[idx], h = 14;
+  let inner = '';
+  if (p.shape === 'triangle')
+    inner = `<polygon points="14,2 26,26 2,26" fill="${p.color}" stroke="${p.stroke}" stroke-width="1.5"/>`;
+  else if (p.shape === 'square')
+    inner = `<rect x="4" y="4" width="20" height="20" rx="2" fill="${p.color}" stroke="${p.stroke}" stroke-width="1.5"/>`;
+  else if (p.shape === 'diamond')
+    inner = `<polygon points="14,2 26,14 14,26 2,14" fill="${p.color}" stroke="${p.stroke}" stroke-width="1.5"/>`;
+  else if (p.shape === 'pentagon') {
+    const pts = [];
+    for (let i = 0; i < 5; i++) { const a = (i * 72 - 90) * Math.PI / 180; pts.push(`${h + h * .85 * Math.cos(a)},${h + h * .85 * Math.sin(a)}`); }
+    inner = `<polygon points="${pts.join(' ')}" fill="${p.color}" stroke="${p.stroke}" stroke-width="1.5"/>`;
+  } else if (p.shape === 'hexagon') {
+    const pts = [];
+    for (let i = 0; i < 6; i++) { const a = (i * 60 - 30) * Math.PI / 180; pts.push(`${h + h * .85 * Math.cos(a)},${h + h * .85 * Math.sin(a)}`); }
+    inner = `<polygon points="${pts.join(' ')}" fill="${p.color}" stroke="${p.stroke}" stroke-width="1.5"/>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 28 28">${inner}</svg>`;
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/queue.js
+//  
+//  Responsabilidade: gerenciar a fila de entrada de peças.
+//  
+//  Funções: weightedRnd(), makeQueueRow(), drainQueue(), renderQueue()
+//  
+//  drainQueue() é chamado após gravity() em qualquer sistema
+//  que modifique o tabuleiro (match, bomb, gravity).
+//  É o sistema que "alimenta" o tabuleiro com novas peças.
+//  
+//  Dependências: state.js, constants.js, piece.js
+// ─────────────────────────────────────────────────────────────
+
+// Gera índice de peça com peso — favorece pentágonos e hexágonos,
+// limita triângulos conforme dificuldade.
+function weightedRnd() {
+  if (Math.random() < DIFF[diff].strongRatio) return 0; // triângulo
+  const pool = [1, 2, 3, 3, 4, 4, 4]; // pentagono e hexagono mais frequentes
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Gera 1 linha completa para a fila
+function makeQueueRow() {
+  return Array.from({ length: COLS }, () => weightedRnd());
+}
+
+// Após gravity(), para cada coluna com topo vazio,
+// desce a peça correspondente da fila e gera nova peça na fila.
+// Chama gravity() novamente para posicionar a peça recém-inserida.
+function drainQueue() {
+  let anyDropped = false;
+  for (let c = 0; c < COLS; c++) {
+    if (board[0][c] == null && queue[c] != null) {
+      board[0][c] = queue[c];
+      queue[c] = weightedRnd(); // repõe fila para essa coluna
+      anyDropped = true;
+    }
+  }
+  if (anyDropped) gravity(); // posiciona peça inserida no fundo
+  return anyDropped;
+}
+
+// Renderiza a linha de fila acima do tabuleiro.
+// .will-drop = colunas que vão receber peça imediatamente
+function renderQueue() {
+  const el = document.getElementById('queue-area');
+  el.innerHTML = '';
+  for (let c = 0; c < COLS; c++) {
+    const div = document.createElement('div');
+    div.className = 'qcell';
+    if (board[0] && board[0][c] == null) div.classList.add('will-drop');
+    if (queue[c] != null) div.innerHTML = svgOf(queue[c]);
+    el.appendChild(div);
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/board.js
+//  
+//  Responsabilidade: tabuleiro — gravidade, render, movimentos,
+//  detecção de matches.
+//  
+//  Funções: gravity(), render(), getMoves(), getEmMoves(),
+//           get2x2HL(), findAllMatches(), countAll(), updatePiecesUI()
+//  
+//  render() é o único ponto que escreve no DOM do tabuleiro.
+//  Todos os outros sistemas chamam render() após modificar board[].
+//  
+//  Dependências: state.js, constants.js, piece.js, cell.js (futuro)
+// ─────────────────────────────────────────────────────────────
+
+// Gravidade pura: peças caem para baixo em cada coluna.
+// SEM compactação lateral — mantém posição das colunas previsível.
+function gravity() {
+  for (let c = 0; c < COLS; c++) {
+    let empty = PLAY_ROWS - 1;
+    for (let r = PLAY_ROWS - 1; r >= 0; r--) {
+      if (board[r][c] != null) { board[empty][c] = board[r][c]; if (empty !== r) board[r][c] = null; empty--; }
+    }
+    while (empty >= 0) { board[empty][c] = null; empty--; }
+  }
+}
+
+// Renderiza o tabuleiro inteiro no DOM.
+// highlights = Set de "r,c" com destinos válidos de movimento
+// hl2x2      = Set de "r,c" com hexágonos em posição 2×2
+// emT        = Set de "r,c" com destinos de emergência
+function render(highlights = new Set(), hl2x2 = new Set(), emT = new Set()) {
+  const el = document.getElementById('board');
+  el.style.gridTemplateRows = `repeat(${PLAY_ROWS},44px)`;
+  el.innerHTML = '';
+  for (let r = 0; r < PLAY_ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const div = document.createElement('div');
+    div.className = 'cell'; div.dataset.r = r; div.dataset.c = c;
+    const idx = board[r][c];
+    if (idx == null) {
+      div.classList.add('empty');
+      if (bombMode) div.classList.add('bomb-target');
+    } else {
+      div.innerHTML = svgOf(idx);
+      if (selected && selected[0] === r && selected[1] === c) div.classList.add('selected');
+      if (highlights.has(`${r},${c}`)) div.classList.add('highlight');
+      if (hl2x2.has(`${r},${c}`)) div.classList.add('hl2x2');
+      if (bombMode) div.classList.add('bomb-target');
+      if (emT.has(`${r},${c}`)) div.classList.add('em-target');
+    }
+    // Futuro: extrair para components/cell.js
+    // cell.addEventListener('click', ...) poderia usar event delegation
+    // no #board em vez de listener em cada célula
+    div.addEventListener('click', () => onCell(r, c));
+    el.appendChild(div);
+  }
+}
+
+// Retorna movimentos válidos de uma peça em [r,c].
+// Respeita moveType do component da peça:
+//   'ortho' → 4 direções cardinais
+//   'diag'  → 4 direções diagonais
+//   'all8'  → todas as 8 direções
+// Só retorna células ocupadas (não permite mover para vazio).
+function getMoves(r, c) {
+  const idx = board[r][c]; if (idx == null || idx === BOMB) return [];
+  const p = PIECES[idx];
+  const ortho = [[-1,0],[1,0],[0,-1],[0,1]], diag = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  let dirs = p.moveType === 'ortho' ? ortho : p.moveType === 'diag' ? diag : [...ortho, ...diag];
+  return dirs.map(([dr,dc]) => [r+dr, c+dc])
+    .filter(([nr,nc]) => nr >= 0 && nr < PLAY_ROWS && nc >= 0 && nc < COLS && board[nr][nc] != null);
+}
+
+// Movimentos ortogonais para o sistema de emergência.
+// Usado por systems/emergency.js — losango usa isso no movimento especial.
+function getEmMoves(r, c) {
+  return [[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc]) => [r+dr, c+dc])
+    .filter(([nr,nc]) => nr >= 0 && nr < PLAY_ROWS && nc >= 0 && nc < COLS && board[nr][nc] != null);
+}
+
+// Retorna Set de posições de hexágonos que já formam um bloco 2×2.
+// Usado para highlight visual antes do movimento.
+function get2x2HL(r, c, idx) {
+  const res = new Set();
+  if (idx < 0 || !PIECES[idx].has2x2) return res;
+  for (const [or,oc] of [[0,0],[0,-1],[-1,0],[-1,-1]]) {
+    const tr = r+or, tc = c+oc;
+    if (tr >= 0 && tr+1 < PLAY_ROWS && tc >= 0 && tc+1 < COLS) {
+      const cells = [[tr,tc],[tr,tc+1],[tr+1,tc],[tr+1,tc+1]];
+      if (cells.every(([rr,cc]) => board[rr][cc] === idx)) cells.forEach(([rr,cc]) => res.add(`${rr},${cc}`));
+    }
+  }
+  return res;
+}
+
+// Detecta todos os matches válidos no tabuleiro atual.
+// Retorna Set de strings "r,c" de todas as peças a destruir.
+// 
+// Regras por tipo de peça (via component minLine e has2x2):
+//   - linhas horizontais e verticais com run >= minLine
+//   - bloco 2×2 para hexágonos (has2x2 = true)
+function findAllMatches() {
+  const found = new Set();
+  for (let i = 0; i < PIECES.length; i++) {
+    const p = PIECES[i], mn = p.minLine;
+    // horizontais
+    for (let r = 0; r < PLAY_ROWS; r++) { let c = 0; while (c < COLS) { if (board[r][c] === i) { let run = 1; while (c+run < COLS && board[r][c+run] === i) run++; if (run >= mn) for (let k = 0; k < run; k++) found.add(`${r},${c+k}`); c += run; } else c++; } }
+    // verticais
+    for (let c = 0; c < COLS; c++) { let r = 0; while (r < PLAY_ROWS) { if (board[r][c] === i) { let run = 1; while (r+run < PLAY_ROWS && board[r+run][c] === i) run++; if (run >= mn) for (let k = 0; k < run; k++) found.add(`${r+k},${c}`); r += run; } else r++; } }
+    // bloco 2×2
+    if (p.has2x2) { for (let r = 0; r < PLAY_ROWS-1; r++) for (let c = 0; c < COLS-1; c++) { if (board[r][c]===i && board[r][c+1]===i && board[r+1][c]===i && board[r+1][c+1]===i) [`${r},${c}`,`${r},${c+1}`,`${r+1},${c}`,`${r+1},${c+1}`].forEach(k => found.add(k)); } }
+  }
+  return found;
+}
+
+// Conta todas as peças restantes (tabuleiro + fila).
+// Win condition: countAll() === 0 → endGame('win')
+function countAll() {
+  let n = 0;
+  for (let r = 0; r < PLAY_ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c] != null) n++;
+  queue.forEach(v => { if (v != null) n++; });
+  return n;
+}
+
+function updatePiecesUI() {
+  document.getElementById('piecesleft').textContent = countAll();
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/hp.js
+//  
+//  Responsabilidade: drain de HP por tempo + recuperação por combo.
+//  
+//  Funções: startHPDrain(), gainHP(), updateHPBar()
+//  
+//  startHPDrain() é chamado uma vez em init().
+//  O intervalo é limpo em clearTimers() (core/main.js).
+//  
+//  Dependências: state.js, constants.js, systems/gameover.js
+// ─────────────────────────────────────────────────────────────
+
+function startHPDrain() {
+  const rate = DIFF[diff].hpRate;
+  hpIv = setInterval(() => {
+    if (gameOver) return;
+    hp = Math.max(0, hp - rate * 0.1); // rate% por segundo (tick a cada 100ms)
+    updateHPBar();
+    if (hp <= 0) endGame(false, 'vida');
+  }, 100);
+}
+
+function gainHP(matchedCount) {
+  // recuperação: 1.5× o número de peças × nível de combo, cap em 28
+  hp = Math.min(100, hp + Math.min(matchedCount * 1.5 * comboLevel, 28));
+  updateHPBar();
+}
+
+function updateHPBar() {
+  const bar = document.getElementById('hpbar'), pct = Math.round(hp);
+  bar.style.width = pct + '%';
+  document.getElementById('hppct').textContent = pct + '%';
+  bar.style.background = hp > 50 ? '#1D9E75' : hp > 25 ? '#BA7517' : '#E24B4A';
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/combo.js
+//  
+//  Responsabilidade: gerenciar nível de combo e multiplicador.
+//  
+//  Funções: bumpCombo(), updateComboUI()
+//  
+//  bumpCombo() é chamado em processMatches() a cada rodada de matches.
+//  O timer é resetado a cada bump. Se expirar → comboLevel volta a 1.
+//  
+//  Dependências: state.js, constants.js
+// ─────────────────────────────────────────────────────────────
+
+function bumpCombo() {
+  comboLevel++;
+  updateComboUI();
+  clearTimeout(comboTimer); clearInterval(comboBarIv);
+  const win = DIFF[diff].comboWindow;
+  comboBarEnd = Date.now() + win;
+  // atualiza barra visual de tempo do combo
+  comboBarIv = setInterval(() => {
+    const rem = Math.max(0, comboBarEnd - Date.now());
+    document.getElementById('combotimer-bar').style.width = (rem / win * 100) + '%';
+    if (rem === 0) clearInterval(comboBarIv);
+  }, 50);
+  comboTimer = setTimeout(() => { comboLevel = 1; updateComboUI(); document.getElementById('combotimer-bar').style.width = '100%'; }, win);
+}
+
+function updateComboUI() {
+  document.getElementById('combometer').textContent = 'x' + comboLevel;
+  const b = (comboLevel - 1) * 0.5;
+  document.getElementById('multibadge').textContent = b > 0 ? `+${b.toFixed(1)}×` : 'base';
+  document.getElementById('combometer').style.color = comboLevel >= 3 ? '#E24B4A' : comboLevel >= 2 ? '#BA7517' : 'var(--color-text-primary)';
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/bomb.js
+//  
+//  Responsabilidade: ativar modo bomba, detonar bomba 3×3.
+//  
+//  Funções: toggleBomb(), detonateBomb(), updateBombs()
+//  
+//  Fluxo: jogador clica em ícone de bomba → toggleBomb() ativa modo
+//  → próximo clique em onCell() redireciona para detonateBomb(r,c)
+//  → detonateBomb remove peças 3×3, chama gravity + processMatches
+//  
+//  Dependências: state.js, systems/board.js, systems/match.js,
+//                systems/hp.js
+// ─────────────────────────────────────────────────────────────
+
+function toggleBomb() {
+  if (gameOver || busy || bombs === 0) return;
+  bombMode = !bombMode;
+  if (bombMode) { emergencyMode = false; emergencyPiece = null; selected = null; updateEmBtn(); setMsg('💣 clique em qualquer célula para explodir 3×3'); }
+  else { render(); setMsg('selecione uma peça'); }
+  updateBombs();
+  render();
+}
+
+function detonateBomb(cr, cc) {
+  if (bombs <= 0 && board[cr][cc] !== BOMB) return;
+  bombMode = false;
+  if (board[cr][cc] !== BOMB) bombs = Math.max(0, bombs - 1); // bomba do estoque
+  let destroyed = 0;
+  // destrói área 3×3 ao redor do clique
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const nr = cr+dr, nc = cc+dc;
+    if (nr >= 0 && nr < PLAY_ROWS && nc >= 0 && nc < COLS && board[nr][nc] != null) { board[nr][nc] = null; destroyed++; }
+  }
+  gainHP(destroyed);
+  score += destroyed * 15;
+  document.getElementById('score').textContent = score;
+  updateBombs();
+  setMsg(`💥 bomba! ${destroyed} peças destruídas`);
+  busy = true;
+  setTimeout(() => { gravity(); drainQueue(); render(); renderQueue(); updatePiecesUI(); setTimeout(() => processMatches(), 280); }, 350);
+}
+
+// Renderiza os slots de bomba no HUD.
+// Slots ocupados = .bomb-icon clicável
+// Slots vazios   = .bomb-empty decorativo
+function updateBombs() {
+  const bar = document.getElementById('bombbar');
+  bar.innerHTML = '';
+  for (let i = 0; i < MAX_BOMBS; i++) {
+    if (i < bombs) {
+      const d = document.createElement('div');
+      d.className = 'bomb-icon' + (bombMode ? ' active-bomb' : '');
+      d.textContent = '💣'; d.title = 'ativar bomba 3×3';
+      d.addEventListener('click', toggleBomb);
+      bar.appendChild(d);
+    } else {
+      const d = document.createElement('div'); d.className = 'bomb-empty'; bar.appendChild(d);
+    }
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/emergency.js
+//  
+//  Responsabilidade: movimento de emergência para losangos.
+//  Permite ao losango fazer 1 movimento ortogonal (normalmente
+//  só diagonal). 1 uso por partida.
+//  
+//  Funções: toggleEmergency() [aqui: listener no botão], updateEmBtn()
+//  
+//  O fluxo de seleção em 2 passos está em systems/input.js (onCell).
+//  
+//  Dependências: state.js, systems/board.js (getEmMoves)
+// ─────────────────────────────────────────────────────────────
+
+function updateEmBtn() {
+  const btn = document.getElementById('emergency-btn');
+  btn.disabled = emergencyUsed;
+  btn.classList.toggle('active-em', emergencyMode);
+  btn.textContent = emergencyUsed ? '🔀 usado' : '🔀 emerg.';
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/input.js
+//  
+//  Responsabilidade: processar cliques do jogador no tabuleiro.
+//  É o "dispatcher" central — decide qual sistema ativar
+//  com base no estado atual (bombMode, emergencyMode, normal).
+//  
+//  Funções: onCell(r, c), doSwap(r1, c1, r2, c2)
+//  
+//  doSwap faz a troca e verifica matches. Se não houver match →
+//  game over imediato (no-combo rule).
+//  
+//  Dependências: state.js, systems/board.js, systems/match.js,
+//                systems/gameover.js, systems/emergency.js
+// ─────────────────────────────────────────────────────────────
+
+function onCell(r, c) {
+  if (busy || gameOver) return;
+
+  // ── modo bomba: próximo clique = detonação ──
+  if (bombMode) { detonateBomb(r, c); return; }
+
+  // ── modo emergência: seleção em 2 passos ──
+  if (emergencyMode) {
+    if (!emergencyPiece) {
+      // passo 1: selecionar losango
+      if (board[r][c] == null || PIECES[board[r][c]]?.moveType !== 'diag') { setMsg('selecione um losango para a emergência'); return; }
+      emergencyPiece = [r, c];
+      const t = new Set(getEmMoves(r, c).map(([mr,mc]) => `${mr},${mc}`));
+      render(new Set(), new Set(), t);
+      document.querySelector(`[data-r="${r}"][data-c="${c}"]`)?.classList.add('selected');
+      setMsg('agora clique na peça destino');
+    } else {
+      // passo 2: confirmar destino
+      const [er, ec] = emergencyPiece;
+      if (getEmMoves(er, ec).some(([mr,mc]) => mr === r && mc === c)) {
+        emergencyMode = false; emergencyUsed = true; emergencyPiece = null; updateEmBtn(); doSwap(er, ec, r, c);
+      } else { emergencyPiece = null; render(); setMsg('selecione um losango para a emergência'); }
+    }
+    return;
+  }
+
+  if (board[r][c] == null) return;
+
+  // clicar direto em bomba no tabuleiro a detona
+  if (board[r][c] === BOMB) { detonateBomb(r, c); return; }
+
+  // ── fluxo normal: seleção → troca ──
+  if (!selected) {
+    selected = [r, c];
+    const hl = new Set(getMoves(r, c).map(([mr,mc]) => `${mr},${mc}`));
+    render(hl, get2x2HL(r, c, board[r][c]));
+    return;
+  }
+  const [sr, sc] = selected;
+  if (sr === r && sc === c) { selected = null; render(); return; }
+  if (getMoves(sr, sc).some(([mr,mc]) => mr === r && mc === c)) {
+    selected = null; doSwap(sr, sc, r, c);
+  } else {
+    // clicou em outra peça — muda seleção
+    selected = [r, c];
+    const hl = new Set(getMoves(r, c).map(([mr,mc]) => `${mr},${mc}`));
+    render(hl, get2x2HL(r, c, board[r][c]));
+  }
+}
+
+function doSwap(r1, c1, r2, c2) {
+  busy = true;
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+  render();
+  if (findAllMatches().size === 0) {
+    // NO-COMBO RULE: desfaz visualmente e declara game over
+    setTimeout(() => {
+      [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+      render();
+      setTimeout(() => endGame(false, 'nocombo'), 400);
+    }, 300);
+    return;
+  }
+  chainReaction = false;
+  setTimeout(() => processMatches(), 200);
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/match.js
+//  
+//  Responsabilidade: processar matches em loop até estabilizar.
+//  É o "game loop" principal das reações em cadeia.
+//  
+//  Funções: processMatches(), tryGiveBomb()
+//  
+//  Fluxo:
+//    processMatches() → encontra matches → remove → gravity()
+//    → drainQueue() → render() → processMatches() (recursão assíncrona)
+//    até findAllMatches() retornar vazio.
+//  
+//  Após estabilizar: verifica win condition (countAll() === 0).
+//  
+//  Dependências: state.js, systems/board.js, systems/queue.js,
+//                systems/combo.js, systems/hp.js, systems/bomb.js,
+//                systems/gameover.js
+// ─────────────────────────────────────────────────────────────
+
+function tryGiveBomb(matchSize, isChain) {
+  // Ganha bomba se: combo de 4+ peças OU reação em cadeia
+  if ((matchSize >= 4 || isChain) && bombs < MAX_BOMBS) {
+    bombs++;
+    updateBombs();
+    setMsg('💣 +1 bomba!');
+  }
+}
+
+function processMatches() {
+  const found = findAllMatches();
+  if (found.size === 0) {
+    // nenhum match: estabilizou
+    busy = false; comboLevel = 1; updateComboUI();
+    gravity(); drainQueue(); render(); renderQueue(); updatePiecesUI();
+    if (countAll() === 0) endGame(true, 'win'); // WIN CONDITION
+    else setMsg('selecione uma peça');
+    return;
+  }
+  const isChain = chainReaction;
+  chainReaction = true; // marca que próxima rodada é cadeia
+  bumpCombo();
+  const multi = 1 + (comboLevel - 1) * 0.5;
+  const pts = Math.round(found.size * 10 * multi);
+  score += pts;
+  document.getElementById('score').textContent = score;
+  gainHP(found.size);
+  tryGiveBomb(found.size, isChain);
+  setMsg(`💥 ${found.size} peças! +${pts}pts${comboLevel > 1 ? ' (x'+comboLevel+' combo)' : ''}`);
+  // remove peças matched
+  found.forEach(k => { const [r,c] = k.split(',').map(Number); board[r][c] = null; });
+  render();
+  // aguarda animação e recomeça loop
+  setTimeout(() => { gravity(); drainQueue(); render(); renderQueue(); updatePiecesUI(); setTimeout(() => processMatches(), 280); }, 350);
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: systems/gameover.js
+//  
+//  Responsabilidade: detectar e exibir fim de jogo.
+//  
+//  Funções: endGame(win, reason)
+//  
+//  Razões de fim de jogo:
+//    'win'     → todas as peças destruídas (vitória)
+//    'vida'    → HP chegou a 0 (derrota por tempo)
+//    'nocombo' → movimento sem combo (derrota por planejamento)
+//  
+//  Futuro: pode emitir evento 'gameover' via EventBus para
+//  registrar highscore, mostrar tela de resultado etc.
+//  
+//  Dependências: state.js, components/overlay.js
+// ─────────────────────────────────────────────────────────────
+
+function endGame(win, reason) {
+  if (gameOver) return;
+  gameOver = true; busy = true; clearTimers();
+  const titles   = { win: '🏆 vitória!',   vida: '💀 game over', nocombo: '💀 game over' };
+  const subs     = {
+    win:     'você destruiu todas as peças!',
+    vida:    'a barra de vida chegou a zero.',
+    nocombo: 'movimento sem combo — você sabia o que vinha e mesmo assim se travou!'
+  };
+  document.getElementById('overlay-title').textContent = titles[reason] || 'game over';
+  document.getElementById('overlay-sub').textContent   = subs[reason]   || '';
+  document.getElementById('overlay-score').textContent = score + ' pts';
+  document.getElementById('overlay').classList.add('show');
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  ARQUIVO: core/main.js
+//  
+//  Responsabilidade: bootstrap, init(), clearTimers(),
+//  event listeners de UI (restart, dificuldade, emergência).
+//  
+//  init() é o ponto de entrada do jogo. Chama todos os sistemas
+//  na ordem correta para montar o estado inicial.
+//  
+//  clearTimers() é chamado antes de qualquer init() para evitar
+//  múltiplos intervals rodando simultâneo.
+//  
+//  Dependências: todos os outros módulos.
+// ─────────────────────────────────────────────────────────────
+
+let diff = 'medio'; // moveria para state.js junto com os outros estados
+
+function clearTimers() {
+  clearInterval(hpIv);
+  clearTimeout(comboTimer);
+  clearInterval(comboBarIv);
+}
+
+function init() {
+  clearTimers();
+  // reset de estado (systems/state.js no futuro)
+  score = 0; hp = 100; comboLevel = 1; selected = null; busy = false; gameOver = false;
+  bombs = 1; bombMode = false; emergencyUsed = false; emergencyMode = false;
+  emergencyPiece = null; chainReaction = false;
+
+  // monta tabuleiro: 4 linhas no fundo, 4 linhas vazias no topo
+  board = [];
+  for (let r = 0; r < PLAY_ROWS; r++)
+    board.push(r < 4 ? Array(COLS).fill(null) : makeQueueRow());
+
+  // fila inicial: 1 peça por coluna
+  queue = makeQueueRow();
+
+  // evita matches no estado inicial
+  let tries = 0;
+  while (findAllMatches().size > 0 && tries++ < 300)
+    for (let r = 4; r < PLAY_ROWS; r++) for (let c = 0; c < COLS; c++) board[r][c] = weightedRnd();
+
+  totalPieces = countAll();
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('score').textContent = 0;
+  updateComboUI(); updateHPBar(); updateBombs(); updateEmBtn();
+  renderQueue(); render();
+  document.getElementById('piecesleft').textContent = totalPieces;
+  setMsg('destrua todas as ' + totalPieces + ' peças — sem no-combo ou game over!');
+  startHPDrain();
+}
+
+// Utilitário de mensagem — futuro: EventBus.emit('msg', texto)
+function setMsg(t) { document.getElementById('msg').textContent = t; }
+
+// ── Event listeners de UI ──────────────────────────────────
+// Futuro: mover para core/main.js no DOMContentLoaded
+
+document.getElementById('emergency-btn').addEventListener('click', () => {
+  if (emergencyUsed || gameOver || busy) return;
+  emergencyMode = !emergencyMode;
+  bombMode = false; emergencyPiece = null; selected = null;
+  updateEmBtn(); updateBombs();
+  if (emergencyMode) setMsg('modo emergência: selecione um losango');
+  else { render(); setMsg('selecione uma peça'); }
+});
+
+document.getElementById('restart').addEventListener('click', init);
+document.getElementById('overlay-btn').addEventListener('click', init);
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    diff = btn.dataset.diff;
+    init();
+  });
+});
+
+// ── START ──────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

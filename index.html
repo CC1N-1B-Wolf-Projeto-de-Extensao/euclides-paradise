@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles/style.css">
+    <title>Paraiso de Euclides</title>
+</head>
+
+<body>
+
+    <!-- ═══════════════════════════════════════════════════════
+     #gw — GAME WRAPPER
+     Raiz de todo o layout do jogo.
+     Futuro: substituir por <canvas> ou manter DOM dependendo
+     da direção do projeto. Se quiser adicionar telas (menu,
+     tutorial, highscore), cada tela vira um filho desse wrapper
+     com display:none/flex controlado por screens/router.js
+════════════════════════════════════════════════════════════ -->
+    <div id="gw">
+        <h2 class="sr-only">Euclid Match</h2>
+
+        <!-- ── HUD SUPERIOR ──────────────────────────────────────
+       Responsabilidade: exibir estado do jogo em tempo real.
+       Componente futuro: components/hud.js
+       Contém: pontuação, combo, peças restantes, bombas,
+               botão de emergência, botão restart.
+  ─────────────────────────────────────────────────────── -->
+        <div id="topbar">
+
+            <!-- Pontuação — atualizada por systems/match.js -->
+            <div class="stat">
+                <span class="sl">pontos</span>
+                <span class="sv" id="score">0</span>
+            </div>
+
+            <!-- Combo meter — controlado por systems/combo.js
+         #combotimer-bar = barra de janela de tempo do combo
+         #multibadge     = texto do multiplicador atual (+0.5x, +1.0x...)
+    -->
+            <div id="combowrap">
+                <div class="stat">
+                    <span class="sl">combo</span>
+                    <span id="combometer">x1</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                    <span id="multibadge">base</span>
+                    <div id="combotimer-bg">
+                        <div id="combotimer-bar" style="width:100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contador de peças restantes — atualizado por systems/board.js + systems/queue.js -->
+            <div class="stat">
+                <span class="sl">peças</span>
+                <span class="sv" id="piecesleft">—</span>
+            </div>
+
+            <!-- Bombas — controlado por systems/bomb.js
+         Cada .bomb-icon é um botão clicável gerado dinamicamente.
+         .bomb-empty = slot vazio (sem bomba disponível)
+    -->
+            <div class="stat">
+                <span class="sl">bombas</span>
+                <div id="bombbar"></div>
+            </div>
+
+            <!-- Botão de emergência — controlado por systems/emergency.js
+         1 uso por partida. Permite losango mover ortogonalmente.
+    -->
+            <button id="emergency-btn">🔀 emerg.</button>
+
+            <!-- Restart — chama init() em core/main.js -->
+            <button class="restart" id="restart">↺</button>
+        </div>
+
+        <!-- ── HP BAR ─────────────────────────────────────────────
+       Sistema: systems/hp.js
+       #hpbar largura e cor mudam via JS conforme hp cai.
+       Verde (>50%) → Laranja (25-50%) → Vermelho (<25%)
+  ──────────────────────────────────────────────────────── -->
+        <div id="hpwrap">
+            <div id="hplabel">
+                <span>vida</span>
+                <span id="hppct">100%</span>
+            </div>
+            <div id="hpbar-bg">
+                <div id="hpbar" style="width:100%;background:#1D9E75;"></div>
+            </div>
+        </div>
+
+        <!-- ── DIFFICULTY SELECTOR ──────────────────────────────
+       Futuro: mover para tela de menu (screens/menu.js).
+       Cada botão seta a variável diff e chama init().
+       Pode virar um componente: components/difficulty-picker.js
+  ──────────────────────────────────────────────────────── -->
+        <div id="diff-bar">
+            <span style="font-size:11px;color:var(--color-text-secondary)">dificuldade:</span>
+            <button class="diff-btn active" data-diff="medio">média</button>
+            <button class="diff-btn" data-diff="hard">hard</button>
+        </div>
+
+        <!-- ── STATUS MESSAGE ───────────────────────────────────
+       Linha de feedback contextual.
+       Atualizado por setMsg() — candidato a events/EventBus.emit('msg', texto)
+       para desacoplar sistemas do DOM diretamente.
+  ──────────────────────────────────────────────────────── -->
+        <div id="msg">selecione uma peça</div>
+
+        <!-- ── BOARD WRAPPER ────────────────────────────────────
+       position:relative para o #overlay ficar absoluto sobre o tabuleiro.
+       Contém: fila de entrada, tabuleiro, overlay de fim de jogo.
+  ──────────────────────────────────────────────────────── -->
+        <div id="boardwrap">
+
+            <!-- ── QUEUE (fila de entrada) ──────────────────────
+         Sistema: systems/queue.js
+         Mostra 1 linha com a próxima peça de cada coluna.
+         Células com .will-drop = coluna com espaço no topo,
+         peça vai entrar imediatamente após o próximo gravity().
+    ──────────────────────────────────────────────────── -->
+            <div id="queue-label">↓ próximas peças ↓</div>
+            <div id="queue-area">
+                <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
+            </div>
+
+            <!-- ── BOARD (tabuleiro principal) ──────────────────
+         Sistema: systems/board.js
+         Grid 7×8. Células geradas dinamicamente por render()
+         em systems/board.js.
+         
+         Estado de uma célula (classes CSS):
+           padrão      = peça normal, clicável
+           .empty      = sem peça (cursor default)
+           .selected   = peça atualmente selecionada
+           .highlight  = destinos válidos de movimento
+           .hl2x2      = hexágonos em posição de combo 2×2
+           .bomb-target = área de efeito da bomba ativa
+           .em-target  = destinos válidos para emergência
+         
+         Cada célula tem data-r e data-c para indexação.
+    ──────────────────────────────────────────────────── -->
+            <div id="board">
+                <!-- gerado dinamicamente por render() em systems/board.js -->
+            </div>
+
+            <!-- ── OVERLAY (fim de jogo) ────────────────────────
+         Sistema: systems/gameover.js
+         Aparece sobre o tabuleiro em 3 situações:
+           - vitória      (reason='win')
+           - vida zerada  (reason='vida')
+           - no-combo     (reason='nocombo')
+         
+         Futuro: pode conter botões de "próxima fase", 
+         "compartilhar pontuação", "ver tutorial" etc.
+         Mover lógica para: components/overlay.js
+    ──────────────────────────────────────────────────── -->
+            <div id="overlay">
+                <div id="overlay-box">
+                    <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
+                    <div id="overlay-sub"></div> <!-- motivo do fim -->
+                    <div id="overlay-score"></div> <!-- pontuação final -->
+                    <button id="overlay-btn">jogar de novo</button>
+                </div>
+            </div>
+
+        </div><!-- /boardwrap -->
+    </div><!-- /gw -->
+    <script type="module" src="./src/core/main.js"></script>
+</body>
+
+</html>
