@@ -5,7 +5,9 @@ export const sounds = {
 
 export function play(name) {
 
-    const sound = new Audio(sounds[name])
+    const base = window.location.pathname.split("/")[1];
+
+    const sound = new Audio(`/${base}/assets/sound/${name}.mp3`)
 
     sound.volume = 0.4;
 
