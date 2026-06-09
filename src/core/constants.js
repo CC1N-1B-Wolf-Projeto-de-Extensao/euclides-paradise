@@ -16,7 +16,7 @@ export const DIFF = {
         strongRatio: 0.15,
         comboWindow: 4000,
         hpScaleFactor: 1,
-        scoreMultiplier: 1
+        scoreMultiplier: 0.7
     },
     hard: {
         hpRate: 2.8,

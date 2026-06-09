@@ -14,7 +14,7 @@ import { drainQueue, renderQueue } from "./queue.js";
 
 export function tryGiveBomb(matchSize, isChain) {
   // Ganha bomba se: combo de 4+ peças OU reação em cadeia
-  if ((matchSize >= 4) && gameState.bombs < MAX_BOMBS) {
+  if ((matchSize >= 5) && gameState.bombs < MAX_BOMBS) {
     gameState.bombs++;
     updateBombs();
     setMsg('💣 +1 bomba!');
@@ -25,7 +25,7 @@ export function processMatches() {
   const found = findAllMatches();
   if (found.size === 0) {
     // nenhum match: estabilizou
-    gameState.busy = false; gameState.comboLevel = 1; updateComboUI();
+    gameState.busy = false; 
     gravity(); drainQueue(); render(); renderQueue(); updatePiecesUI();
     if (countAll() === 0) endGame(true, 'win'); // WIN CONDITION
     else setMsg('selecione uma peça');

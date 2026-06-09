@@ -9,91 +9,92 @@
 </head>
 
 <body>
-<!-- MENU INICIAL -->
-<div id="start-screen" class="screen show">
+    <!-- MENU INICIAL -->
+    <div id="start-screen" class="screen show">
 
-    <div class="screen-box">
+        <div class="screen-box">
 
-        <h1>Paraiso de Euclides</h1>
+            <h1>Paraiso de Euclides</h1>
 
-        <p>
-            Um puzzle de combinação de formas baseado em geometria plana.
-        </p>
+            <p>
+                Um puzzle de combinação de formas baseado em geometria plana.
+            </p>
 
-        <div class="screen-buttons">
+            <div class="screen-buttons">
 
-            <button id="play-btn">
-                Jogar
-            </button>
+                <button id="play-btn">
+                    Jogar
+                </button>
 
-            <button id="tutorial-btn">
-                Como Jogar
-            </button>
+                <button id="tutorial-btn">
+                    Como Jogar
+                </button>
+
+            </div>
 
         </div>
 
     </div>
 
-</div>
 
+    <!-- TUTORIAL -->
+    <div id="tutorial-screen" class="screen">
 
-<!-- TUTORIAL -->
-<div id="tutorial-screen" class="screen">
+        <div class="screen-box tutorial-box">
 
-    <div class="screen-box tutorial-box">
+            <h2>Como Jogar</h2>
 
-        <h2>Como Jogar</h2>
+            <div class="tutorial-content">
 
-        <div class="tutorial-content">
+                <h3>Objetivo</h3>
 
-            <h3>Objetivo</h3>
+                <p>
+                    Faça combinações entre as figuras para ganhar pontos e impedir
+                    que sua vida chegue a zero.
+                </p>
 
-            <p>
-                Faça combinações entre as figuras para ganhar pontos e impedir
-                que sua vida chegue a zero.
-            </p>
+                <p>
+                    Movimentos invalidos automaticamente o fará perder a partida. Então tome cuidado!
+                </p>
 
-            <p>
-                Movimentos invalidos automaticamente o fará perder a partida. Então tome cuidado!
-            </p>
+                <h3>Peças</h3>
 
-            <h3>Peças</h3>
+                <ul>
+                    <li>
+                        🔺 Triângulos por serem a forma geometrica mais versatil se movem em todas as direções
+                    </li>
 
-            <ul>
-                <li>
-                    🔺 Triângulos por serem a forma geometrica mais versatil se movem em todas as direções
-                </li>
+                    <li>
+                        🟪 Quadrados formam combos apenas em linha reta com no minimo 4 peças.
+                    </li>
 
-                <li>
-                    🟪 Quadrados formam combos apenas em linha reta com no minimo 4 peças.
-                </li>
+                    <li>
+                        ♦ Losangos movem-se pelas diagonais.
+                    </li>
 
-                <li>
-                    ♦ Losangos movem-se pelas diagonais.
-                </li>
+                    <li>
+                        ⬡ Hexágonos são uma ótima forma geometrica para cobrir o plano e portanto podem realizar combos
+                        em area 2×2.
+                    </li>
 
-                <li>
-                    ⬡ Hexágonos são uma ótima forma geometrica para cobrir o plano e portanto podem realizar combos em area 2×2.
-                </li>
+                </ul>
 
-            </ul>
+                <h3>Bombas</h3>
 
-            <h3>Bombas</h3>
+                <p>
+                    Use bombas para remover peças do tabuleiro em situações de emergência.
 
-            <p>
-                Use bombas para remover peças do tabuleiro em situações de emergência.
-                
-                Você obtem uma bomba ao realizar um combo de 4 ou mais peças.
-            </p>
+                    Você obtem uma bomba ao realizar um combo de 5 ou mais peças.
+                </p>
+            </div>
+
+            <button id="back-btn">
+                Voltar
+            </button>
+
         </div>
 
-        <button id="back-btn">
-            Voltar
-        </button>
-
     </div>
-
-</div>
     <!-- ═══════════════════════════════════════════════════════
      #gw — GAME WRAPPER
      Raiz de todo o layout do jogo.
@@ -246,6 +247,8 @@
          "compartilhar pontuação", "ver tutorial" etc.
          Mover lógica para: components/overlay.js
     ──────────────────────────────────────────────────── -->
+                <div id="fx-layer"></div>
+
                 <div id="overlay">
                     <div id="overlay-box">
                         <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
@@ -261,7 +264,9 @@
 
         <!-- /boardwrap -->
     </div><!-- /gw -->
+    <div id="bomb-flash"></div>
     <script type="module" src="./src/core/main.js"></script>
+
 </body>
 
 </html>
