@@ -11,6 +11,7 @@ import { bumpCombo, updateComboUI } from "./combo.js";
 import { endGame } from "./gameover.js";
 import { gainHP } from "./hp.js";
 import { drainQueue, renderQueue } from "./queue.js";
+import { play } from "./sound.js";
 
 export function tryGiveBomb(matchSize, isChain) {
   // Ganha bomba se: combo de 4+ peças OU reação em cadeia
@@ -45,6 +46,7 @@ export function processMatches() {
   // remove peças matched
   found.forEach(k => { const [r,c] = k.split(',').map(Number); gameState.board[r][c] = null; });
   render();
+  play("match")
   // aguarda animação e recomeça loop
   setTimeout(() => { gravity(); drainQueue(); render(); renderQueue(); updatePiecesUI(); setTimeout(() => processMatches(), 280); }, 350);
 }

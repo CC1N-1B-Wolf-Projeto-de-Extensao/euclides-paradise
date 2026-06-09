@@ -204,19 +204,12 @@
 
             </div>
             <div id="boardwrap">
+                    <div id="queue-label">↓ próximas peças ↓</div>
+                    <div id="queue-area">
+                        <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
+                    </div>
 
-                <!-- ── QUEUE (fila de entrada) ──────────────────────
-         Sistema: systems/queue.js
-         Mostra 1 linha com a próxima peça de cada coluna.
-         Células com .will-drop = coluna com espaço no topo,
-         peça vai entrar imediatamente após o próximo gravity().
-    ──────────────────────────────────────────────────── -->
-                <div id="queue-label">↓ próximas peças ↓</div>
-                <div id="queue-area">
-                    <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
-                </div>
-
-                <!-- ── BOARD (tabuleiro principal) ──────────────────
+                    <!-- ── BOARD (tabuleiro principal) ──────────────────
          Sistema: systems/board.js
          Grid 7×8. Células geradas dinamicamente por render()
          em systems/board.js.
@@ -232,11 +225,11 @@
          
          Cada célula tem data-r e data-c para indexação.
     ──────────────────────────────────────────────────── -->
-                <div id="board">
-                    <!-- gerado dinamicamente por render() em systems/board.js -->
-                </div>
+                    <div id="board">
+                        <!-- gerado dinamicamente por render() em systems/board.js -->
+                    </div>
 
-                <!-- ── OVERLAY (fim de jogo) ────────────────────────
+                    <!-- ── OVERLAY (fim de jogo) ────────────────────────
          Sistema: systems/gameover.js
          Aparece sobre o tabuleiro em 3 situações:
            - vitória      (reason='win')
@@ -247,25 +240,25 @@
          "compartilhar pontuação", "ver tutorial" etc.
          Mover lógica para: components/overlay.js
     ──────────────────────────────────────────────────── -->
-                <div id="fx-layer"></div>
+                    <div id="fx-layer"></div>
 
-                <div id="overlay">
-                    <div id="overlay-box">
-                        <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
-                        <div id="overlay-sub"></div> <!-- motivo do fim -->
-                        <div id="overlay-score"></div> <!-- pontuação final -->
-                        <button id="overlay-btn">jogar de novo</button>
+                    <div id="overlay">
+                        <div id="overlay-box">
+                            <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
+                            <div id="overlay-sub"></div> <!-- motivo do fim -->
+                            <div id="overlay-score"></div> <!-- pontuação final -->
+                            <button id="overlay-btn">jogar de novo</button>
+                        </div>
                     </div>
+                <div id="particle-layer">
                 </div>
-
             </div>
-        </div>
 
 
-        <!-- /boardwrap -->
-    </div><!-- /gw -->
-    <div id="bomb-flash"></div>
-    <script type="module" src="./src/core/main.js"></script>
+            <!-- /boardwrap -->
+        </div><!-- /gw -->
+        <div id="bomb-flash"></div>
+        <script type="module" src="./src/core/main.js"></script>
 
 </body>
 

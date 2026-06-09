@@ -711,3 +711,54 @@ button.restart:hover {
     }
 
 }
+
+#particle-layer{
+    position:absolute;
+    inset:0;
+
+    overflow:hidden;
+
+    pointer-events:none;
+
+    z-index:4;
+}
+
+.particle{
+
+    position:absolute;
+
+    width:8px;
+    height:8px;
+
+    border-radius:50%;
+
+    filter:blur(1px);
+
+    animation:particle 0.8s forwards;
+}
+
+@keyframes particle{
+
+    0%{
+
+        opacity:1;
+
+        transform:
+            translate(0,0)
+            scale(1);
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:
+            translate(
+                var(--dx),
+                var(--dy)
+            )
+            scale(.2);
+
+    }
+}

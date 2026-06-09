@@ -6,6 +6,7 @@ import { updateEmBtn } from "./emergency.js";
 import { gainHP } from "./hp.js";
 import { processMatches } from "./match.js";
 import { drainQueue, renderQueue } from "./queue.js";
+import { play } from "./sound.js";
 import { shakeBoard } from "./specialEffects.js";
 
 export function toggleBomb() {
@@ -35,6 +36,7 @@ export function detonateBomb(cr, cc) {
   document.getElementById('score').textContent = gameState.score;
   updateBombs();
   bombFlash();
+  play("explosion")
   shakeBoard("big");
 
 
