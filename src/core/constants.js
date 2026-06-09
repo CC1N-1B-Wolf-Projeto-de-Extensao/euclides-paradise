@@ -4,19 +4,26 @@ export const MAX_BOMBS = 3;
 export const BOMB = -1; //  célula com bomba no tabuleiro
 
 export const DIFF = {
-    medio: { 
+    facil: {
+        hpRate: 0.5,
+        strongRatio: 0.05,
+        comboWindow: 6000,
+        hpScaleFactor: 0.3,
+        scoreMultiplier: 0.3
+    },
+    medio: {
         hpRate: 1.6,
         strongRatio: 0.15,
         comboWindow: 4000,
         hpScaleFactor: 1,
-        scoreMultiplier: 1 
+        scoreMultiplier: 1
     },
-    hard: { 
+    hard: {
         hpRate: 2.8,
         strongRatio: 0.30,
         comboWindow: 2800,
         hpScaleFactor: 1.5,
-        scoreMultiplier: 1.5 
+        scoreMultiplier: 1.5
     },
 };
 

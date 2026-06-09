@@ -3,10 +3,14 @@ import { updateBombs } from "../systems/bomb.js";
 import { updateComboUI } from "../systems/combo.js";
 import { updateEmBtn } from "../systems/emergency.js";
 import { startHPDrain, updateHPBar } from "../systems/hp.js";
+import { initMenu, toggle_start } from "../systems/menu.js";
 import { makeQueueRow, renderQueue, weightedRnd } from "../systems/queue.js";
 import { COLS, PLAY_ROWS } from "./constants.js";
 import { gameState } from "./state.js";
 //Dependências: todos os outros módulos.
+
+initMenu()
+
 export function clearTimers() {
     clearInterval(gameState.hpIv);
     clearTimeout(gameState.comboTimer);
@@ -72,7 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('restart').addEventListener('click', init);
-    document.getElementById('overlay-btn').addEventListener('click', init);
+    document.getElementById('overlay-btn').addEventListener('click', toggle_start);
+    document.getElementById('play-btn').addEventListener('click', init)
 
     document.querySelectorAll('.diff-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -82,7 +87,5 @@ document.addEventListener("DOMContentLoaded", () => {
             init();
         });
     });
-
-    init();
 })
 

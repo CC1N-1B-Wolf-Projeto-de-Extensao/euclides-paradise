@@ -14,7 +14,7 @@ import { drainQueue, renderQueue } from "./queue.js";
 
 export function tryGiveBomb(matchSize, isChain) {
   // Ganha bomba se: combo de 4+ peças OU reação em cadeia
-  if ((matchSize >= 4 || isChain) && gameState.bombs < MAX_BOMBS) {
+  if ((matchSize >= 4) && gameState.bombs < MAX_BOMBS) {
     gameState.bombs++;
     updateBombs();
     setMsg('💣 +1 bomba!');

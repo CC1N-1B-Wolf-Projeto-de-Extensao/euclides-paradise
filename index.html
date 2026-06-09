@@ -9,7 +9,91 @@
 </head>
 
 <body>
+<!-- MENU INICIAL -->
+<div id="start-screen" class="screen show">
 
+    <div class="screen-box">
+
+        <h1>Paraiso de Euclides</h1>
+
+        <p>
+            Um puzzle de combinação de formas baseado em geometria plana.
+        </p>
+
+        <div class="screen-buttons">
+
+            <button id="play-btn">
+                Jogar
+            </button>
+
+            <button id="tutorial-btn">
+                Como Jogar
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- TUTORIAL -->
+<div id="tutorial-screen" class="screen">
+
+    <div class="screen-box tutorial-box">
+
+        <h2>Como Jogar</h2>
+
+        <div class="tutorial-content">
+
+            <h3>Objetivo</h3>
+
+            <p>
+                Faça combinações entre as figuras para ganhar pontos e impedir
+                que sua vida chegue a zero.
+            </p>
+
+            <p>
+                Movimentos invalidos automaticamente o fará perder a partida. Então tome cuidado!
+            </p>
+
+            <h3>Peças</h3>
+
+            <ul>
+                <li>
+                    🔺 Triângulos por serem a forma geometrica mais versatil se movem em todas as direções
+                </li>
+
+                <li>
+                    🟪 Quadrados formam combos apenas em linha reta com no minimo 4 peças.
+                </li>
+
+                <li>
+                    ♦ Losangos movem-se pelas diagonais.
+                </li>
+
+                <li>
+                    ⬡ Hexágonos são uma ótima forma geometrica para cobrir o plano e portanto podem realizar combos em area 2×2.
+                </li>
+
+            </ul>
+
+            <h3>Bombas</h3>
+
+            <p>
+                Use bombas para remover peças do tabuleiro em situações de emergência.
+                
+                Você obtem uma bomba ao realizar um combo de 4 ou mais peças.
+            </p>
+        </div>
+
+        <button id="back-btn">
+            Voltar
+        </button>
+
+    </div>
+
+</div>
     <!-- ═══════════════════════════════════════════════════════
      #gw — GAME WRAPPER
      Raiz de todo o layout do jogo.
@@ -98,8 +182,9 @@
   ──────────────────────────────────────────────────────── -->
         <div id="diff-bar">
             <span style="font-size:11px;color:var(--color-text-secondary)">dificuldade:</span>
-            <button class="diff-btn active" data-diff="medio">média</button>
-            <button class="diff-btn" data-diff="hard">hard</button>
+            <button class="diff-btn" data-diff="facil">facil</button>
+            <button class="diff-btn active" data-diff="medio">médio</button>
+            <button class="diff-btn" data-diff="hard">dificil</button>
         </div>
 
         <!-- ── STATUS MESSAGE ───────────────────────────────────
@@ -113,20 +198,24 @@
        position:relative para o #overlay ficar absoluto sobre o tabuleiro.
        Contém: fila de entrada, tabuleiro, overlay de fim de jogo.
   ──────────────────────────────────────────────────────── -->
-        <div id="boardwrap">
+        <div class="gameArea">
+            <div class="tutorial-screen" id="tutorial">
 
-            <!-- ── QUEUE (fila de entrada) ──────────────────────
+            </div>
+            <div id="boardwrap">
+
+                <!-- ── QUEUE (fila de entrada) ──────────────────────
          Sistema: systems/queue.js
          Mostra 1 linha com a próxima peça de cada coluna.
          Células com .will-drop = coluna com espaço no topo,
          peça vai entrar imediatamente após o próximo gravity().
     ──────────────────────────────────────────────────── -->
-            <div id="queue-label">↓ próximas peças ↓</div>
-            <div id="queue-area">
-                <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
-            </div>
+                <div id="queue-label">↓ próximas peças ↓</div>
+                <div id="queue-area">
+                    <!-- gerado dinamicamente por renderQueue() em systems/queue.js -->
+                </div>
 
-            <!-- ── BOARD (tabuleiro principal) ──────────────────
+                <!-- ── BOARD (tabuleiro principal) ──────────────────
          Sistema: systems/board.js
          Grid 7×8. Células geradas dinamicamente por render()
          em systems/board.js.
@@ -142,11 +231,11 @@
          
          Cada célula tem data-r e data-c para indexação.
     ──────────────────────────────────────────────────── -->
-            <div id="board">
-                <!-- gerado dinamicamente por render() em systems/board.js -->
-            </div>
+                <div id="board">
+                    <!-- gerado dinamicamente por render() em systems/board.js -->
+                </div>
 
-            <!-- ── OVERLAY (fim de jogo) ────────────────────────
+                <!-- ── OVERLAY (fim de jogo) ────────────────────────
          Sistema: systems/gameover.js
          Aparece sobre o tabuleiro em 3 situações:
            - vitória      (reason='win')
@@ -157,16 +246,20 @@
          "compartilhar pontuação", "ver tutorial" etc.
          Mover lógica para: components/overlay.js
     ──────────────────────────────────────────────────── -->
-            <div id="overlay">
-                <div id="overlay-box">
-                    <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
-                    <div id="overlay-sub"></div> <!-- motivo do fim -->
-                    <div id="overlay-score"></div> <!-- pontuação final -->
-                    <button id="overlay-btn">jogar de novo</button>
+                <div id="overlay">
+                    <div id="overlay-box">
+                        <div id="overlay-title"></div> <!-- ex: "🏆 vitória!" -->
+                        <div id="overlay-sub"></div> <!-- motivo do fim -->
+                        <div id="overlay-score"></div> <!-- pontuação final -->
+                        <button id="overlay-btn">jogar de novo</button>
+                    </div>
                 </div>
-            </div>
 
-        </div><!-- /boardwrap -->
+            </div>
+        </div>
+
+
+        <!-- /boardwrap -->
     </div><!-- /gw -->
     <script type="module" src="./src/core/main.js"></script>
 </body>
