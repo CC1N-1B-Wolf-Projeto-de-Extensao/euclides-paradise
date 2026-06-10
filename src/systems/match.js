@@ -1,6 +1,3 @@
-//Dependências: state.js, systems/board.js, systems/queue.js,
-//systems/combo.js, systems/hp.js, systems/bomb.js,
-//systems/gameover.js
 
 import { DIFF, MAX_BOMBS } from "../core/constants.js";
 import { setMsg } from "../core/main.js";

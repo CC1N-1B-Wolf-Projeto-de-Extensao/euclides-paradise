@@ -1,13 +1,11 @@
 import { countAll, findAllMatches, render } from "../systems/board.js";
 import { updateBombs } from "../systems/bomb.js";
 import { updateComboUI } from "../systems/combo.js";
-import { updateEmBtn } from "../systems/emergency.js";
 import { startHPDrain, updateHPBar } from "../systems/hp.js";
 import { initMenu, toggle_start } from "../systems/menu.js";
 import { makeQueueRow, renderQueue, weightedRnd } from "../systems/queue.js";
 import { COLS, PLAY_ROWS } from "./constants.js";
 import { gameState } from "./state.js";
-//Dependências: todos os outros módulos.
 
 initMenu()
 
@@ -19,7 +17,6 @@ export function clearTimers() {
 
 export function init() {
     clearTimers();
-    // reset de estado (systems/state.js no futuro)
     gameState.score = 0; 
     gameState.hp = 100; 
     gameState.comboLevel = 1; 
@@ -34,7 +31,6 @@ export function init() {
     gameState.chainReaction = false;
     gameState.board = [];
 
-    // monta tabuleiro: 4 linhas no fundo, 4 linhas vazias no topo
     for (let r = 0; r < PLAY_ROWS; r++)
         gameState.board.push(r < 4 ? Array(COLS).fill(null) : makeQueueRow());
 
@@ -51,7 +47,6 @@ export function init() {
     updateComboUI();
     updateHPBar();
     updateBombs();
-    updateEmBtn();
     renderQueue();
     render();
 
@@ -62,19 +57,7 @@ export function init() {
 
 export function setMsg(t) { document.getElementById('msg').textContent = t; }
 
-// ── Event listeners de UI ──────────────────────────────────
-// Futuro: mover para core/main.js no DOMContentLoaded
-
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById('emergency-btn').addEventListener('click', () => {
-        if (gameState.emergencyUsed || gameState.gameOver || gameState.busy) return;
-        gameState.emergencyMode = !gameState.emergencyMode;
-        gameState.bombMode = false; gameState.emergencyPiece = null; gameState.selected = null;
-        updateEmBtn(); updateBombs();
-        if (gameState.emergencyMode) setMsg('modo emergência: selecione um losango');
-        else { render(); setMsg('selecione uma peça'); }
-    });
-
     document.getElementById('restart').addEventListener('click', init);
     document.getElementById('overlay-btn').addEventListener('click', toggle_start);
     document.getElementById('play-btn').addEventListener('click', init)

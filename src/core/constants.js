@@ -27,7 +27,7 @@ export const DIFF = {
     },
 };
 
-// Cada peça é uma entidade simples com components:
+// Cada peça é uma entidade simples com components no modelo ECS:
 //   shape     component visual (renderizado por piece.js)
 //   minLine   component de regra de combo em linha
 //   moveType  component de regra de movimento

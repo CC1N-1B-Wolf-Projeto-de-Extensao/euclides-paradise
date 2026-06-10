@@ -61,7 +61,7 @@ export function getMoves(r, c) {
     .filter(([nr,nc]) => nr >= 0 && nr < PLAY_ROWS && nc >= 0 && nc < COLS && gameState.board[nr][nc] != null);
 }
 
-// Movimentos ortogonais para o sistema de emergência.
+// Movimentos ortogonais para o sistema de emergência. DEPRECATED
 // Usado por systems/emergency.js — losango usa isso no movimento especial.
 export function getEmMoves(r, c) {
   return [[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc]) => [r+dr, c+dc])

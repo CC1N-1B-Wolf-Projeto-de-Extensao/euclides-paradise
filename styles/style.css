@@ -17,9 +17,7 @@
 }
 
 
-/* ── RESET ─────────────────────────────────────────────
-       Mover para: styles/reset.css
-    ──────────────────────────────────────────────────────── */
+
 * {
    box-sizing: border-box;
    margin: 0;
@@ -30,10 +28,7 @@ body {
    background-color: #1f1c36;
 }
 
-/* ── LAYOUT ROOT ────────────────────────────────────────
-       #gw = game wrapper, raiz de todo o layout.
-       Mover para: styles/layout.css
-    ──────────────────────────────────────────────────────── */
+
 #gw {
    padding: 1rem 0;
    display: flex;
@@ -43,11 +38,7 @@ body {
    font-family: var(--font-sans);
 }
 
-/* ── HUD (heads-up display) ─────────────────────────────
-       Barra superior com pontos, combo, peças restantes, bombas.
-       Candidato a componente: components/hud.js
-       Mover para: styles/hud.css
-    ──────────────────────────────────────────────────────── */
+
 #topbar {
    display: flex;
    gap: 12px;
@@ -73,10 +64,7 @@ body {
    align-items: center;
 }
 
-/* ── HP BAR ─────────────────────────────────────────────
-       Sistema próprio: systems/hp.js
-       Mover para: styles/hp.css
-    ──────────────────────────────────────────────────────── */
+
 #hpwrap {
    width: 290px;
 }
@@ -104,10 +92,7 @@ body {
    transition: width 0.2s, background 0.3s;
 }
 
-/* ── COMBO UI ───────────────────────────────────────────
-       Sistema próprio: systems/combo.js
-       Mover para: styles/combo.css
-    ──────────────────────────────────────────────────────── */
+
 #combowrap {
    display: flex;
    align-items: center;
@@ -142,10 +127,7 @@ body {
    border-radius: 2px;
 }
 
-/* ── BOMBS UI ───────────────────────────────────────────
-       Sistema próprio: systems/bomb.js
-       Mover para: styles/bomb.css
-    ──────────────────────────────────────────────────────── */
+
 #bombbar {
    display: flex;
    gap: 5px;
@@ -184,10 +166,7 @@ body {
    opacity: 0.35;
 }
 
-/* ── DIFFICULTY SELECTOR ────────────────────────────────
-       Poderia ser um componente: components/difficulty-picker.js
-       Ou parte do menu inicial (futuro: screens/menu.js)
-    ──────────────────────────────────────────────────────── */
+
 #diff-bar {
    display: flex;
    gap: 7px;
@@ -215,10 +194,7 @@ body {
    font-weight: 500;
 }
 
-/* ── BOARD WRAPPER ──────────────────────────────────────
-       Contém: fila de entrada (queue), tabuleiro principal, overlay.
-       Mover para: styles/board.css
-    ──────────────────────────────────────────────────────── */
+
 #boardwrap {
    position: relative;
    display: flex;
@@ -226,11 +202,7 @@ body {
    align-items: center;
 }
 
-/* ── QUEUE (fila de entrada) ────────────────────────────
-       Sistema próprio: systems/queue.js
-       Mostra a próxima linha que vai entrar por coluna.
-       .will-drop = coluna que vai receber peça imediatamente
-    ──────────────────────────────────────────────────────── */
+
 #queue-label {
    font-size: 10px;
    color: var(--color-text-secondary);
@@ -264,17 +236,7 @@ body {
    border-color: #BA7517;
 }
 
-/* ── BOARD (tabuleiro principal) ────────────────────────
-       Sistema principal: systems/board.js
-       Grid 7×8 de células.
-       Estados de célula:
-         .selected    = peça selecionada pelo jogador
-         .highlight   = destino válido de movimento (azul)
-         .hl2x2       = hexágonos que formam 2×2 (verde)
-         .bomb-target = célula dentro do alcance de bomba (rosa)
-         .em-target   = destino válido para movimento de emergência
-         .empty       = célula vazia (sem peça)
-    ──────────────────────────────────────────────────────── */
+
 #board {
    display: grid;
    grid-template-columns: repeat(7, 44px);
@@ -340,11 +302,7 @@ body {
    cursor: crosshair;
 }
 
-/* ── STATUS MESSAGE ─────────────────────────────────────
-       Linha de feedback contextual para o jogador.
-       Mover para: styles/hud.css
-       Gerenciado por: setMsg() em core/main.js ou systems/input.js
-    ──────────────────────────────────────────────────────── */
+
 #msg {
    font-size: 12px;
    color: var(--color-text-secondary);
@@ -353,11 +311,7 @@ body {
    max-width: 340px;
 }
 
-/* ── OVERLAY (game over / vitória) ─────────────────────
-       Sistema próprio: systems/gameover.js + components/overlay.js
-       Aparece sobre o tabuleiro com resultado final.
-       Mover para: styles/overlay.css
-    ──────────────────────────────────────────────────────── */
+
 #overlay {
    display: none;
    position: absolute;
@@ -416,9 +370,7 @@ body {
    background: var(--color-background-secondary);
 }
 
-/* ── BOTÕES UTILITÁRIOS ─────────────────────────────────
-       Mover para: styles/buttons.css
-    ──────────────────────────────────────────────────────── */
+
 button.restart {
    font-size: 12px;
    padding: 3px 9px;

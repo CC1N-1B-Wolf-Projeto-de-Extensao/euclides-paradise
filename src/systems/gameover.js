@@ -1,6 +1,5 @@
 import { clearTimers } from "../core/main.js";
 import { gameState } from "../core/state.js";
-//Dependências: state.js, components/overlay.js
 
 export function endGame(win, reason) {
   if (gameState.gameOver) return;

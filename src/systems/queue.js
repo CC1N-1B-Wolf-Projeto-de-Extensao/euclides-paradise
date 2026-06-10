@@ -2,7 +2,7 @@ import { svgOf } from "../components/piece.js";
 import { DIFF, COLS, PLAY_ROWS } from "../core/constants.js";
 import { gameState } from "../core/state.js";
 import { gravity } from "./board.js";
-//  Dependências: state.js, constants.js, piece.js
+
 export function weightedRnd() {
   if (Math.random() < DIFF[gameState.diff].strongRatio) return 0; // triângulo
   const pool = [1, 2, 3, 3, 4, 4, 4]; // pentagono e hexagono mais frequentes
